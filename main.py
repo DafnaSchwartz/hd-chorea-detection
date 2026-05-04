@@ -32,6 +32,7 @@ use_ssl_encoder = False  # True: load SSL-trained encoder if available, False: u
 use_class_weights = True  # True: use class weights to handle imbalanced data, False: no weighting
 use_focal_loss = False  # True: use focal loss (only for masked CE), False: standard loss
 use_combined_labels = False  # True: combine labels (0->0, 1,2->1, 3,4->2), False: keep original 5 classes (0-4)
+freeze_backbone = True  # True: freeze backbone (pretrained feature extractor) and train only the head
 
 curr_dir = os.getcwd()
 
@@ -572,7 +573,16 @@ def main():
         
         model.to(device)
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+        # Freeze backbone (pretrained feature extractor), train only the head
+        if freeze_backbone:
+            for param in model.pretrained_model.parameters():
+                param.requires_grad = False
+            trainable_params = [p for p in model.parameters() if p.requires_grad]
+            print(f"  Backbone frozen. Training head only ({len(trainable_params)} trainable parameter tensors).")
+        else:
+            trainable_params = model.parameters()
+
+        optimizer = torch.optim.Adam(trainable_params, lr=1e-3)
         
         # Select loss function based on configuration
         if class_weights_tensor is not None:
